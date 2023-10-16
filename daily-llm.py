@@ -23,7 +23,7 @@ class DailyLLM(EventHandler):
             self,
             room_url=os.getenv("DAILY_URL"),
             token=os.getenv('DAILY_TOKEN'),
-            bot_name="Storybot",
+            bot_name="Translator",
             image_style="watercolor illustrated children's book", # keep the generated images to a certain theme, like "golden age of illustration," "talented kid's crayon drawing", etc.
         ):
 
@@ -69,8 +69,7 @@ class DailyLLM(EventHandler):
 
         self.print_debug("starting orchestrator")
         self.orchestrator = Orchestrator(self, self.mic, self.tts, self.image_gen, self.llm, self.story_id)
-        self.orchestrator.enqueue(StoryIntroScene)
-        self.orchestrator.enqueue(StartListeningScene)
+        self.orchestrator.action()
 
         self.participant_left = False
         self.transcription = ""
@@ -81,10 +80,6 @@ class DailyLLM(EventHandler):
             self.print_debug(f"{participant_count} participants in room")
             while time.time() < self.expiration and not self.participant_left:
                 # all handling of incoming transcriptions happens in on_transcription_message
-                if self.last_fragment_at is not None and (time.time() > self.last_fragment_at + 5):
-                    # They probably stopped talking, but Deepgram didn't give us a complete sentence
-                    print(f"Sending transcript due to timeout: {self.transcription}")
-                    self.send_transcription()
                 time.sleep(1)
         except Exception as e:
             self.print_debug(f"Exception {e}")
@@ -142,6 +137,7 @@ class DailyLLM(EventHandler):
         self.print_debug(f"call_joined: {join_data}, {client_error}")
         self.client.start_transcription()
 
+
     def on_participant_updated(self, participant):
         pass
 
@@ -161,41 +157,21 @@ class DailyLLM(EventHandler):
         pass
 
     def on_participant_joined(self, participant):
-        self.print_debug(f"on_participant_joined: {participant}")
-        self.client.send_app_message({ "event": "story-id", "storyID": self.story_id})
-        self.wave()
-        time.sleep(2)
-
-        # don't run intro question for newcomers
-        if not self.story_started:
-            #self.orchestrator.request_intro()
-            self.orchestrator.action()
-            self.story_started = True
+        pass
 
     def on_participant_left(self, participant, reason):
         if len(self.client.participants()) < 2:
             self.print_debug("participant left")
             self.participant_left = True
 
-    def send_transcription(self):
-        self.orchestrator.handle_user_speech(self.transcription)
-        self.transcription = ""
-        self.last_fragment_at = None
-
     def on_transcription_message(self, message):
         # TODO: This should maybe match on my own participant id instead but I'm in a hurry
         if message['session_id'] != self.my_participant_id:
-            if self.orchestrator.started_listening_at:
-                # TODO: Check actual transcription timestamp against started_listening_at
-                self.transcription += f" {message['text']}"
-                # Deepgram says we should look for ending punctuation
-                if re.search(r'[\.\!\?]$', self.transcription):
-                    print(f"✏️ Sending reply: {self.transcription}")
-                    self.send_transcription()
-                else:
-                    print(f"✏️ Got a transcription fragment: \"{self.transcription}\"")
-                    self.last_fragment_at = time.time()
+            print(f"💼 Got transcription: {message['text']}")
+            self.orchestrator.handle_user_speech(message)
 
+    def send_app_message(self, message):
+        self.client.send_app_message(message)
 
     def set_image(self, image):
         self.image = image

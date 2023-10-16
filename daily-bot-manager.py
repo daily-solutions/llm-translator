@@ -26,6 +26,7 @@ def spin_up_bot():
                                 'enable_emoji_reactions': True,
                                 'eject_at_room_exp': True,
                                 'enable_prejoin_ui': False,
+                                'enable_recording': 'cloud'
                             }
                         })
     if res.status_code != 200:

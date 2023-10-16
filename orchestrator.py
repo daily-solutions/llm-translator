@@ -32,8 +32,7 @@ class Orchestrator():
         self.tts_getter = None
         self.image_getter = None
 
-        self.messages = [{"role": "system", "content": "You are a storyteller who loves to make up fantastic, fun, and educational stories for children between the ages of 5 and 10 years old. Your stories are full of friendly, magical creatures. Your stories are never scary. Each sentence of your story will become a page in a storybook. Stop after 4-6 sentences and give the child a choice to make that will influence the next part of the story. Once the child responds, start by saying something nice about the choice they made, then include [start] in your response. Include [break] after each sentence of the story. Include [prompt] between the story and the prompt."}]
-        self.intro_messages = [{"role": "system", "content": "You are a storyteller who loves to make up fantastic, fun, and educational stories for children between the ages of 5 and 10 years old. Your stories are full of friendly, magical creatures. Your stories are never scary. Begin by asking what a child wants you to tell a story about."}]
+        self.messages = [{"role": "system", "content": "You will be provided with a sentence in English, and your task is to translate it into French."}]
 
         self.llm_response_thread = None
 
@@ -45,11 +44,10 @@ class Orchestrator():
 
 
 
-    def handle_user_speech(self, user_speech):
-        print(f"👅 Handling user speech: {user_speech}")
+    def handle_user_speech(self, message):
+        print(f"👅 Handling user speech: {message}")
         if not self.llm_response_thread or not self.llm_response_thread.is_alive():
-            self.enqueue(StopListeningScene)
-            self.llm_response_thread = Thread(target=self.request_llm_response, args=(user_speech,))
+            self.llm_response_thread = Thread(target=self.request_llm_response, args=(message,))
             self.llm_response_thread.start()
         else:
             print("discarding overlapping speech, TODO barge-in")
@@ -63,20 +61,17 @@ class Orchestrator():
     def listening_since(self):
         return self.started_listening_at
 
-    def request_llm_response(self, user_speech):
+    def request_llm_response(self, message):
         try:
-            self.messages.append({"role": "user", "content": user_speech})
-            response = self.ai_llm_service.run_llm(self.messages)
-            self.handle_llm_response(response)
+            msgs = [{"role": "system", "content": "You will be provided with a sentence in English, and your task is to translate it into French."}, {"role": "user", "content": message['text']}]
+            message['response'] = self.ai_llm_service.run_llm(msgs)
+            self.handle_translation(message)
         except Exception as e:
             print(f"Exception in request_llm_response: {e}")
 
-    def request_intro(self):
-        response = self.ai_llm_service.run_llm(self.intro_messages)
-        return self.handle_intro(response)
-
-    def handle_intro(self, llm_response):
+    def handle_translation(self, message):
         # Do this all as one piece, at least for now
+        llm_response = message['response']
         out = ''
         for chunk in llm_response:
             if len(chunk["choices"]) == 0:
@@ -85,7 +80,9 @@ class Orchestrator():
                 if chunk["choices"][0]["delta"]["content"] != {}: #streaming a content chunk
                     next_chunk = chunk["choices"][0]["delta"]["content"]
                     out += next_chunk
-        return self.ai_tts_service.run_tts(out)
+        #sentence = self.ai_tts_service.run_tts(out)
+        message['translation'] = out
+        self.enqueue(StoryGrandmaScene, message=message)
 
     def handle_llm_response(self, llm_response):
         out = ''
