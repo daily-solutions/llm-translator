@@ -22,9 +22,9 @@ class AzureAIService(AIService):
 
     def run_tts(self, sentence):
         print("⌨️ running azure tts async")
-        ssml = "<speak version='1.0' xml:lang='en-US' xmlns='http://www.w3.org/2001/10/synthesis' " \
+        ssml = "<speak version='1.0' xml:lang='fr-FR' xmlns='http://www.w3.org/2001/10/synthesis' " \
            "xmlns:mstts='http://www.w3.org/2001/mstts'>" \
-           "<voice name='en-US-SaraNeural'>" \
+           "<voice name='fr-FR-HenriNeural'>" \
            "<mstts:silence type='Sentenceboundary' value='20ms' />" \
            "<mstts:express-as style='lyrical' styledegree='2' role='SeniorFemale'>" \
            "<prosody rate='1.05'>" \
